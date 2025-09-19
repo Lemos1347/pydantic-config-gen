@@ -1,0 +1,118 @@
+# Configuration definitions for multi-application environment variables
+# Each section represents a subject/domain (database, redis, auth, etc.)
+# Variables are organized by logical grouping for maintainable access
+
+[database.DATABASE_URL]
+type = "str"
+description = "Main database connection URL"
+applications = ["user-service", "order-service", "notification-service"]
+
+[database.DATABASE_POOL_SIZE]
+type = "int"
+default = "10"
+description = "Database connection pool size"
+applications = ["user-service", "order-service"]
+
+[database.DATABASE_TIMEOUT]
+type = "int"
+default = "30"
+description = "Database connection timeout in seconds"
+applications = ["user-service", "order-service", "notification-service"]
+
+[redis.REDIS_URL]
+type = "str"
+description = "Redis connection URL for caching"
+applications = ["user-service", "notification-service"]
+
+[redis.REDIS_TTL]
+type = "int"
+default = "3600"
+description = "Default TTL for Redis cache entries in seconds"
+applications = ["user-service", "notification-service"]
+
+[auth.JWT_SECRET]
+type = "str"
+description = "Secret key for JWT token signing"
+applications = ["user-service", "api-gateway"]
+
+[auth.JWT_EXPIRY]
+type = "int"
+default = "86400"
+description = "JWT token expiry time in seconds"
+applications = ["user-service", "api-gateway"]
+
+[logging.LOG_LEVEL]
+type = "str"
+default = "INFO"
+description = "Application log level"
+applications = ["user-service", "order-service", "notification-service", "api-gateway"]
+
+[logging.LOG_FORMAT]
+type = "str"
+default = "json"
+description = "Log format (json or text)"
+applications = ["user-service", "order-service", "notification-service", "api-gateway"]
+
+[http.API_HOST]
+type = "str"
+default = "0.0.0.0"
+description = "HTTP server host"
+applications = ["api-gateway", "user-service"]
+
+[http.API_PORT]
+type = "int"
+default = "8000"
+description = "HTTP server port"
+applications = ["api-gateway", "user-service"]
+
+[messaging.QUEUE_URL]
+type = "str"
+description = "Message queue connection URL"
+applications = ["order-service", "notification-service"]
+
+[messaging.QUEUE_TIMEOUT]
+type = "int"
+default = "60"
+description = "Message queue timeout in seconds"
+applications = ["order-service", "notification-service"]
+
+# Telemetry configuration with optional and conditional variables
+[telemetry.USE_OTL]
+type = "bool"
+default = "false"
+description = "Enable OpenTelemetry tracing"
+applications = ["user-service", "api-gateway"]
+
+[telemetry.OTL_ENDPOINT]
+type = "str"
+description = "OpenTelemetry endpoint URL"
+required_when = "USE_OTL=true"
+applications = ["user-service", "api-gateway"]
+
+[telemetry.OTL_SERVICE_NAME]
+type = "Optional[str]"
+description = "Service name for OpenTelemetry (optional)"
+applications = ["user-service", "api-gateway"]
+
+[telemetry.TRACE_SAMPLE_RATE]
+type = "Optional[float]"
+description = "Trace sampling rate between 0.0 and 1.0"
+applications = ["user-service", "api-gateway"]
+
+# Feature flags with conditional requirements
+[features.ENABLE_RATE_LIMITING]
+type = "bool"
+default = "false"
+description = "Enable API rate limiting"
+applications = ["api-gateway"]
+
+[features.RATE_LIMIT_PER_MINUTE]
+type = "int"
+description = "Rate limit requests per minute"
+required_when = "ENABLE_RATE_LIMITING=true"
+applications = ["api-gateway"]
+
+[features.RATE_LIMIT_REDIS_URL]
+type = "Optional[str]"
+description = "Redis URL for rate limiting (uses main Redis if not specified)"
+applications = ["api-gateway"]

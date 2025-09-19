@@ -1,0 +1,135 @@
+"""
+Generated configuration module.
+This file is auto-generated from config.toml - DO NOT EDIT MANUALLY.
+
+To regenerate: uv run generate-configs
+"""
+
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, ValidationInfo
+
+
+# Subject-specific configuration classes
+{% for subject_name, subject in subjects.items() %}
+class {{ get_class_name(subject_name) }}(BaseSettings):
+    """Configuration for {{ subject_name.lower() }} related settings."""
+{% for variable in subject.variables %}
+    {{ variable.name.lower() }}: {% if variable.required_when %}Optional[{{ get_python_type(variable.type) }}]{% else %}{{ get_python_type(variable.type, variable.is_optional) }}{% endif %}{% if variable.default %} = {% if variable.type == 'str' %}"{{ variable.default }}"{% elif variable.type == 'bool' %}{{ variable.default.lower() == 'true' and 'True' or 'False' }}{% else %}{{ variable.default }}{% endif %}{% elif variable.is_optional or variable.required_when %} = None{% endif %}{% if variable.description %}  # {{ variable.description }}{% endif %}
+
+{% endfor %}
+
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        extra="ignore"
+    )
+
+{% if has_conditional_variables(subject.variables) %}
+    # Conditional field validators
+{% for variable in subject.variables %}
+{% if variable.required_when %}
+    @field_validator('{{ variable.name.lower() }}')
+    @classmethod
+    def validate_{{ variable.name.lower() }}(cls, v: Optional[{{ get_python_type(variable.type) }}], info: ValidationInfo) -> Optional[{{ get_python_type(variable.type) }}]:
+        """Validate {{ variable.name.lower() }} based on conditional requirements."""
+        {% set condition_field, expected_value = parse_required_when_condition(variable.required_when) %}
+        {% if variable.type == 'bool' %}
+        condition_met = info.data.get('{{ condition_field }}', False) == {{ expected_value.lower() if expected_value.lower() in ['true', 'false'] else expected_value }}
+        {% else %}
+        condition_met = str(info.data.get('{{ condition_field }}', '')).lower() == '{{ expected_value.lower() }}'
+        {% endif %}
+
+        if condition_met and v is None:
+            raise ValueError('{{ variable.name }} is required when {{ condition_field.upper() }}={{ expected_value }}')
+
+        return v
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+# Module-level cached instances
+{% for subject_name in subjects.keys() %}
+_{{ get_property_name(subject_name) }}: Optional[{{ get_class_name(subject_name) }}] = None
+{% endfor %}
+
+# Module-level getter functions for direct import
+{% for subject_name in subjects.keys() %}
+def {{ get_property_name(subject_name) }}() -> {{ get_class_name(subject_name) }}:
+    """Get {{ subject_name.lower() }} configuration. Lazy-loaded and cached."""
+    global _{{ get_property_name(subject_name) }}
+    if _{{ get_property_name(subject_name) }} is None:
+        _{{ get_property_name(subject_name) }} = {{ get_class_name(subject_name) }}()
+    return _{{ get_property_name(subject_name) }}
+
+{% endfor %}
+
+# Application validation function
+def validate_app_config(app_name: str) -> None:
+    """
+    Validate that all configuration needed by an application is available.
+
+    This should be called at application startup to fail fast if any
+    required environment variables are missing.
+
+    Args:
+        app_name: Name of the application to validate
+
+    Raises:
+        ValidationError: If any required configuration is missing or invalid
+    """
+    {% for app_name, app_config in applications.items() %}
+    if app_name == "{{ app_name }}":
+        # Force loading of all configs needed by {{ app_name }}
+        {% for subject in app_config.subjects %}
+        _ = {{ get_property_name(subject) }}()
+        {% endfor %}
+        return
+    {% endfor %}
+
+    raise ValueError(f"Unknown application: {app_name}")
+
+
+# Available applications
+AVAILABLE_APPLICATIONS = [
+    {% for app_name in applications.keys() %}
+    "{{ app_name }}",
+    {% endfor %}
+]
+
+
+# Reset function for testing
+def _reset_cache() -> None:
+    """Reset all cached configurations. Used for testing."""
+    {% for subject_name in subjects.keys() %}
+    global _{{ get_property_name(subject_name) }}
+    _{{ get_property_name(subject_name) }} = None
+    {% endfor %}
+
+
+# Application-specific configuration classes
+{% for app_name, app_config in applications.items() %}
+class {{ snake_to_camel(app_name.replace('-', '_')) }}Config:
+    """Configuration container for {{ app_name }} application."""
+
+    def __init__(self):
+        # Load all required configs for this application
+        {% for subject in app_config.subjects %}
+        self.{{ subject.lower() }} = {{ get_property_name(subject) }}()
+        {% endfor %}
+
+    {% for subject in app_config.subjects %}
+    @property
+    def {{ subject.lower() }}_config(self) -> {{ get_class_name(subject) }}:
+        """Get {{ subject.lower() }} configuration."""
+        return self.{{ subject.lower() }}
+    {% endfor %}
+
+
+def get_{{ app_name.replace('-', '_') }}_config() -> {{ snake_to_camel(app_name.replace('-', '_')) }}Config:
+    """Get complete configuration for {{ app_name }} application."""
+    return {{ snake_to_camel(app_name.replace('-', '_')) }}Config()
+
+{% endfor %}
