@@ -57,6 +57,7 @@ class ParsedConfig:
     subjects: Dict[str, SubjectConfig]
     applications: Dict[str, ApplicationConfig]
     variables: List[ConfigVariable]
+    model_config_settings: Dict[str, Any]
 
 
 def parse_toml_file(file_path: str) -> ParsedConfig:
@@ -75,6 +76,13 @@ def parse_toml_file(file_path: str) -> ParsedConfig:
     variables = []
     subjects = {}
     applications = {}
+    model_config_settings = {}
+
+    # Extract global model_config settings if present
+    if 'config_defaults' in data and 'model_config' in data['config_defaults']:
+        model_config_settings = data['config_defaults']['model_config']
+        # Remove from data so it doesn't get processed as a subject
+        del data['config_defaults']
 
     # Parse each section and variable
     for subject_name, subject_vars in data.items():
@@ -123,7 +131,8 @@ def parse_toml_file(file_path: str) -> ParsedConfig:
     return ParsedConfig(
         subjects=subjects,
         applications=applications,
-        variables=variables
+        variables=variables,
+        model_config_settings=model_config_settings
     )
 
 
@@ -190,3 +199,24 @@ def parse_required_when_condition(condition: str) -> tuple[str, str]:
 def has_conditional_variables(variables: List[ConfigVariable]) -> bool:
     """Check if any variables have conditional requirements."""
     return any(var.required_when for var in variables)
+
+
+def format_model_config_settings(settings: Dict[str, Any]) -> str:
+    """Format model_config settings as Python code."""
+    if not settings:
+        # Default settings
+        return '''model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )'''
+
+    lines = ['model_config = SettingsConfigDict(']
+    for key, value in settings.items():
+        if isinstance(value, str):
+            lines.append(f'        {key}="{value}",')
+        elif isinstance(value, bool):
+            lines.append(f'        {key}={str(value)},')
+        else:
+            lines.append(f'        {key}={value},')
+    lines.append('    )')
+    return '\n    '.join(lines)

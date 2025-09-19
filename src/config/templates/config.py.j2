@@ -19,10 +19,7 @@ class {{ get_class_name(subject_name) }}(BaseSettings):
 
 {% endfor %}
 
-    model_config = SettingsConfigDict(
-        env_prefix="",
-        extra="ignore"
-    )
+    {{ format_model_config_settings(model_config_settings) }}
 
 {% if has_conditional_variables(subject.variables) %}
     # Conditional field validators
@@ -109,16 +106,30 @@ def _reset_cache() -> None:
     {% endfor %}
 
 
-# Application-specific configuration classes
+# Application-specific configuration classes (singletons)
 {% for app_name, app_config in applications.items() %}
 class {{ snake_to_camel(app_name.replace('-', '_')) }}Config:
-    """Configuration container for {{ app_name }} application."""
+    """Configuration container for {{ app_name }} application (singleton)."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self):
+        # Only initialize once
+        if self.__class__._initialized:
+            return
+
         # Load all required configs for this application
         {% for subject in app_config.subjects %}
         self.{{ subject.lower() }} = {{ get_property_name(subject) }}()
         {% endfor %}
+
+        self.__class__._initialized = True
 
     {% for subject in app_config.subjects %}
     @property
@@ -129,7 +140,7 @@ class {{ snake_to_camel(app_name.replace('-', '_')) }}Config:
 
 
 def get_{{ app_name.replace('-', '_') }}_config() -> {{ snake_to_camel(app_name.replace('-', '_')) }}Config:
-    """Get complete configuration for {{ app_name }} application."""
+    """Get complete configuration for {{ app_name }} application (singleton)."""
     return {{ snake_to_camel(app_name.replace('-', '_')) }}Config()
 
 {% endfor %}

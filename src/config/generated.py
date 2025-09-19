@@ -18,7 +18,7 @@ class DatabaseConfig(BaseSettings):
     database_timeout: int = 30  # Database connection timeout in seconds
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -29,7 +29,7 @@ class RedisConfig(BaseSettings):
     redis_ttl: int = 3600  # Default TTL for Redis cache entries in seconds
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -40,7 +40,7 @@ class AuthConfig(BaseSettings):
     jwt_expiry: int = 86400  # JWT token expiry time in seconds
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -51,7 +51,7 @@ class LoggingConfig(BaseSettings):
     log_format: str = "json"  # Log format (json or text)
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -62,7 +62,7 @@ class HttpConfig(BaseSettings):
     api_port: int = 8000  # HTTP server port
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -73,7 +73,7 @@ class MessagingConfig(BaseSettings):
     queue_timeout: int = 60  # Message queue timeout in seconds
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -86,7 +86,7 @@ class TelemetryConfig(BaseSettings):
     trace_sample_rate: Optional[float] = None  # Trace sampling rate between 0.0 and 1.0
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -110,7 +110,7 @@ class FeaturesConfig(BaseSettings):
     rate_limit_redis_url: Optional[str] = None  # Redis URL for rate limiting (uses main Redis if not specified)
 
     model_config = SettingsConfigDict(
-        env_prefix="",
+        env_file=".env",
         extra="ignore"
     )
 
@@ -210,14 +210,12 @@ def validate_app_config(app_name: str) -> None:
     Raises:
         ValidationError: If any required configuration is missing or invalid
     """
-    if app_name == "user-service":
-        # Force loading of all configs needed by user-service
-        _ = auth_config()
+    if app_name == "notification-service":
+        # Force loading of all configs needed by notification-service
         _ = database_config()
-        _ = http_config()
         _ = logging_config()
+        _ = messaging_config()
         _ = redis_config()
-        _ = telemetry_config()
         return
     if app_name == "api-gateway":
         # Force loading of all configs needed by api-gateway
@@ -233,12 +231,14 @@ def validate_app_config(app_name: str) -> None:
         _ = logging_config()
         _ = messaging_config()
         return
-    if app_name == "notification-service":
-        # Force loading of all configs needed by notification-service
+    if app_name == "user-service":
+        # Force loading of all configs needed by user-service
+        _ = auth_config()
         _ = database_config()
+        _ = http_config()
         _ = logging_config()
-        _ = messaging_config()
         _ = redis_config()
+        _ = telemetry_config()
         return
 
     raise ValueError(f"Unknown application: {app_name}")
@@ -246,10 +246,10 @@ def validate_app_config(app_name: str) -> None:
 
 # Available applications
 AVAILABLE_APPLICATIONS = [
-    "user-service",
+    "notification-service",
     "api-gateway",
     "order-service",
-    "notification-service",
+    "user-service",
 ]
 
 
@@ -274,11 +274,161 @@ def _reset_cache() -> None:
     _features_config = None
 
 
-# Application-specific configuration classes
-class UserServiceConfig:
-    """Configuration container for user-service application."""
+# Application-specific configuration classes (singletons)
+class NotificationServiceConfig:
+    """Configuration container for notification-service application (singleton)."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self):
+        # Only initialize once
+        if self.__class__._initialized:
+            return
+
+        # Load all required configs for this application
+        self.database = database_config()
+        self.logging = logging_config()
+        self.messaging = messaging_config()
+        self.redis = redis_config()
+
+        self.__class__._initialized = True
+
+    @property
+    def database_config(self) -> DatabaseConfig:
+        """Get database configuration."""
+        return self.database
+    @property
+    def logging_config(self) -> LoggingConfig:
+        """Get logging configuration."""
+        return self.logging
+    @property
+    def messaging_config(self) -> MessagingConfig:
+        """Get messaging configuration."""
+        return self.messaging
+    @property
+    def redis_config(self) -> RedisConfig:
+        """Get redis configuration."""
+        return self.redis
+
+
+def get_notification_service_config() -> NotificationServiceConfig:
+    """Get complete configuration for notification-service application (singleton)."""
+    return NotificationServiceConfig()
+
+class ApiGatewayConfig:
+    """Configuration container for api-gateway application (singleton)."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Only initialize once
+        if self.__class__._initialized:
+            return
+
+        # Load all required configs for this application
+        self.auth = auth_config()
+        self.features = features_config()
+        self.http = http_config()
+        self.logging = logging_config()
+        self.telemetry = telemetry_config()
+
+        self.__class__._initialized = True
+
+    @property
+    def auth_config(self) -> AuthConfig:
+        """Get auth configuration."""
+        return self.auth
+    @property
+    def features_config(self) -> FeaturesConfig:
+        """Get features configuration."""
+        return self.features
+    @property
+    def http_config(self) -> HttpConfig:
+        """Get http configuration."""
+        return self.http
+    @property
+    def logging_config(self) -> LoggingConfig:
+        """Get logging configuration."""
+        return self.logging
+    @property
+    def telemetry_config(self) -> TelemetryConfig:
+        """Get telemetry configuration."""
+        return self.telemetry
+
+
+def get_api_gateway_config() -> ApiGatewayConfig:
+    """Get complete configuration for api-gateway application (singleton)."""
+    return ApiGatewayConfig()
+
+class OrderServiceConfig:
+    """Configuration container for order-service application (singleton)."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Only initialize once
+        if self.__class__._initialized:
+            return
+
+        # Load all required configs for this application
+        self.database = database_config()
+        self.logging = logging_config()
+        self.messaging = messaging_config()
+
+        self.__class__._initialized = True
+
+    @property
+    def database_config(self) -> DatabaseConfig:
+        """Get database configuration."""
+        return self.database
+    @property
+    def logging_config(self) -> LoggingConfig:
+        """Get logging configuration."""
+        return self.logging
+    @property
+    def messaging_config(self) -> MessagingConfig:
+        """Get messaging configuration."""
+        return self.messaging
+
+
+def get_order_service_config() -> OrderServiceConfig:
+    """Get complete configuration for order-service application (singleton)."""
+    return OrderServiceConfig()
+
+class UserServiceConfig:
+    """Configuration container for user-service application (singleton)."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Only initialize once
+        if self.__class__._initialized:
+            return
+
         # Load all required configs for this application
         self.auth = auth_config()
         self.database = database_config()
@@ -286,6 +436,8 @@ class UserServiceConfig:
         self.logging = logging_config()
         self.redis = redis_config()
         self.telemetry = telemetry_config()
+
+        self.__class__._initialized = True
 
     @property
     def auth_config(self) -> AuthConfig:
@@ -314,102 +466,6 @@ class UserServiceConfig:
 
 
 def get_user_service_config() -> UserServiceConfig:
-    """Get complete configuration for user-service application."""
+    """Get complete configuration for user-service application (singleton)."""
     return UserServiceConfig()
-
-class ApiGatewayConfig:
-    """Configuration container for api-gateway application."""
-
-    def __init__(self):
-        # Load all required configs for this application
-        self.auth = auth_config()
-        self.features = features_config()
-        self.http = http_config()
-        self.logging = logging_config()
-        self.telemetry = telemetry_config()
-
-    @property
-    def auth_config(self) -> AuthConfig:
-        """Get auth configuration."""
-        return self.auth
-    @property
-    def features_config(self) -> FeaturesConfig:
-        """Get features configuration."""
-        return self.features
-    @property
-    def http_config(self) -> HttpConfig:
-        """Get http configuration."""
-        return self.http
-    @property
-    def logging_config(self) -> LoggingConfig:
-        """Get logging configuration."""
-        return self.logging
-    @property
-    def telemetry_config(self) -> TelemetryConfig:
-        """Get telemetry configuration."""
-        return self.telemetry
-
-
-def get_api_gateway_config() -> ApiGatewayConfig:
-    """Get complete configuration for api-gateway application."""
-    return ApiGatewayConfig()
-
-class OrderServiceConfig:
-    """Configuration container for order-service application."""
-
-    def __init__(self):
-        # Load all required configs for this application
-        self.database = database_config()
-        self.logging = logging_config()
-        self.messaging = messaging_config()
-
-    @property
-    def database_config(self) -> DatabaseConfig:
-        """Get database configuration."""
-        return self.database
-    @property
-    def logging_config(self) -> LoggingConfig:
-        """Get logging configuration."""
-        return self.logging
-    @property
-    def messaging_config(self) -> MessagingConfig:
-        """Get messaging configuration."""
-        return self.messaging
-
-
-def get_order_service_config() -> OrderServiceConfig:
-    """Get complete configuration for order-service application."""
-    return OrderServiceConfig()
-
-class NotificationServiceConfig:
-    """Configuration container for notification-service application."""
-
-    def __init__(self):
-        # Load all required configs for this application
-        self.database = database_config()
-        self.logging = logging_config()
-        self.messaging = messaging_config()
-        self.redis = redis_config()
-
-    @property
-    def database_config(self) -> DatabaseConfig:
-        """Get database configuration."""
-        return self.database
-    @property
-    def logging_config(self) -> LoggingConfig:
-        """Get logging configuration."""
-        return self.logging
-    @property
-    def messaging_config(self) -> MessagingConfig:
-        """Get messaging configuration."""
-        return self.messaging
-    @property
-    def redis_config(self) -> RedisConfig:
-        """Get redis configuration."""
-        return self.redis
-
-
-def get_notification_service_config() -> NotificationServiceConfig:
-    """Get complete configuration for notification-service application."""
-    return NotificationServiceConfig()
 

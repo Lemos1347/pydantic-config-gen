@@ -2,6 +2,13 @@
 # Each section represents a subject/domain (database, redis, auth, etc.)
 # Variables are organized by logical grouping for maintainable access
 
+# Global Pydantic settings applied to all configuration classes
+# [config_defaults.model_config]
+# env_file = ".env"
+# env_file_encoding = "utf-8"
+# extra = "ignore"
+# case_sensitive = false
+
 [database.DATABASE_URL]
 type = "str"
 description = "Main database connection URL"

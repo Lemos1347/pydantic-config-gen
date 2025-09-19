@@ -9,7 +9,8 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from .parser import (
     parse_toml_file, get_python_type, get_class_name, get_property_name,
-    snake_to_camel, parse_required_when_condition, has_conditional_variables
+    snake_to_camel, parse_required_when_condition, has_conditional_variables,
+    format_model_config_settings
 )
 
 
@@ -44,6 +45,7 @@ def generate_config_code(config_file: str = "config.toml", output_file: str = No
         'snake_to_camel': snake_to_camel,
         'parse_required_when_condition': parse_required_when_condition,
         'has_conditional_variables': has_conditional_variables,
+        'format_model_config_settings': format_model_config_settings,
     })
 
     # Load template
@@ -53,7 +55,8 @@ def generate_config_code(config_file: str = "config.toml", output_file: str = No
     rendered_code = template.render(
         subjects=parsed_config.subjects,
         applications=parsed_config.applications,
-        variables=parsed_config.variables
+        variables=parsed_config.variables,
+        model_config_settings=parsed_config.model_config_settings
     )
 
     # Ensure output directory exists
