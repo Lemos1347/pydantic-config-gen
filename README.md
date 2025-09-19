@@ -1,5 +1,8 @@
 # Python Configuration System
 
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg?1ogo=python&logoColor=white)](https://www.python.org/downloads/release/python-3120/)
+[![uv - package manager](https://img.shields.io/badge/uv-%F0%9F%93%A6%20package--manager-6e40c9?1ogo=astral&logoColor=white)](https://github.com/astral-sh/uv)
+
 A Python configuration management system inspired by Cartesi's TOML-based approach. This system generates type-safe Pydantic configuration classes from a single TOML definition file, organized by logical domains (subjects) rather than individual services.
 
 ## Key Features
@@ -18,7 +21,7 @@ A Python configuration management system inspired by Cartesi's TOML-based approa
 ### 1. Install Dependencies
 
 ```bash
-uv add pydantic pydantic-settings toml jinja2
+uv sync --frozen
 ```
 
 ### 2. Define Configuration
@@ -69,6 +72,7 @@ uv run generate-configs
 ### 4. Use in Your Application
 
 **Startup validation (fail-fast):**
+
 ```python
 from config import validate_app_config
 
@@ -80,6 +84,7 @@ def main():
 ```
 
 **Direct imports in services:**
+
 ```python
 from config import database_config, redis_config
 
@@ -194,6 +199,7 @@ applications = ["user-service"]
 ```
 
 Generated code:
+
 ```python
 class TelemetryConfig(BaseSettings):
     otl_service_name: Optional[str] = None
@@ -218,6 +224,7 @@ applications = ["user-service"]
 ```
 
 Generated code:
+
 ```python
 class TelemetryConfig(BaseSettings):
     use_otl: bool = False
@@ -299,22 +306,23 @@ PYTHONPATH=src uv run python examples/startup_validation.py api-gateway
 ## Project Structure
 
 ```
-   config.toml                    # Configuration definitions
-   src/config/
-      __init__.py                # Public API
-      parser.py                  # TOML parser
-      generator.py               # Code generator
-      generated.py               # Generated config classes
-      templates/
-          config.py.j2           # Jinja2 template
-   scripts/
-      generate_configs.py        # CLI script
-   examples/                      # Usage examples
+    config.toml                    # Configuration definitions
+    src/config/
+        __init__.py                # Public API
+        parser.py                  # TOML parser
+        generator.py               # Code generator
+        generated.py               # Generated config classes
+        templates/
+            config.py.j2           # Jinja2 template
+    scripts/
+        generate_configs.py        # CLI script
+    examples/                      # Usage examples
 ```
 
 ## Comparison with Traditional Approaches
 
 ### Traditional pydantic-settings (Single Class)
+
 ```python
 class Settings(BaseSettings):
     database_url: str
@@ -324,6 +332,7 @@ class Settings(BaseSettings):
 ```
 
 ### This System (Subject-Based)
+
 ```python
 # Each subject is separate
 class DatabaseConfig(BaseSettings):
